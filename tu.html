@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Rectangular Prism with Support Cubes</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+      // 创建场景
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f0f0);
+
+      // 创建相机
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        0.5,
+        3000
+      );
+      camera.position.set(700, 150, 750); // 提高相机位置
+
+      // 创建渲染器
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+      // 创建纹理加载器
+      const textureLoader = new THREE.TextureLoader();
+
+      // 加载纹理
+      const wood1Texture = textureLoader.load("/images/1.jpg");
+      const wood2Texture = textureLoader.load("/images/2.jpg");
+      const wood3Texture = textureLoader.load("/images/3.jpg");
+      const wood1Material = new THREE.MeshBasicMaterial({ map: wood1Texture });
+      const wood2Material = new THREE.MeshBasicMaterial({ map: wood2Texture });
+      const wood3Material = new THREE.MeshBasicMaterial({ map: wood3Texture });
+      // 创建木板 (110cm x 100cm x 1.4cm)
+      // const woodTexture = new THREE.MeshBasicMaterial({ color: 0xd2b48c }); // 偏黄的木头颜色
+      const woodGeometry = new THREE.BoxGeometry(110 * 5, 1.4 * 5, 100 * 5); // 乘以5，按照1cm=5px的比例
+      const wood = new THREE.Mesh(woodGeometry, wood1Material);
+      wood.position.set(0, 0.7 * 5, 0); // 将木板抬高，使其底部接触正方体
+      scene.add(wood);
+      const edges = new THREE.EdgesGeometry(woodGeometry);
+      const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 }); // 黑色
+      const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+      edgeLines.position.set(0, 0.7 * 5, 0); // 设置边框的位置与正方体一致
+      scene.add(edgeLines);
+
+      // 支撑正方体的几何体和材质 (8cm x 8cm x 8cm)
+      const cubeGeometry = new THREE.BoxGeometry(8 * 5, 8 * 5, 8 * 5); // 每个正方体的边长为8cm
+
+      // 正方体的位置坐标（四角、边的中间、中心）
+      const cubePositions = [
+        [-51 * 5, -4 * 5, -46 * 5], // 左前角
+        [51 * 5, -4 * 5, -46 * 5], // 右前角
+        [-51 * 5, -4 * 5, 46 * 5], // 左后角
+        [51 * 5, -4 * 5, 46 * 5], // 右后角
+        [0 * 5, -4 * 5, -46 * 5], // 前边中间
+        [0 * 5, -4 * 5, 46 * 5], // 后边中间
+        [-51 * 5, -4 * 5, 0 * 5], // 左边中间
+        [51 * 5, -4 * 5, 0 * 5], // 右边中间
+        [0 * 5, -4 * 5, 0 * 5], // 中心
+      ];
+
+      // 在每个指定的位置创建正方体
+      cubePositions.forEach((pos) => {
+        const cube = new THREE.Mesh(cubeGeometry, wood3Material);
+        cube.position.set(...pos);
+        scene.add(cube);
+        const edges = new THREE.EdgesGeometry(cubeGeometry);
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 }); // 黑色
+        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+        edgeLines.position.set(...pos); // 设置边框的位置与正方体一致
+        scene.add(edgeLines);
+      });
+
+      // 支撑正方体的几何体和材质 (8cm x 8cm x 8cm)
+      const rectGeometry = new THREE.BoxGeometry(110 * 5, 1.4 * 5, 8 * 5); // 每个正方体的边长为8cm
+      const rectMaterial = new THREE.MeshBasicMaterial({ color: 0xd2b48c }); // 深棕色材质
+
+      // 正方体的位置坐标（四角、边的中间、中心）
+      const rectPositions = [
+        [0, -8.7 * 5, -46 * 5], // 左边中间
+        [0, -8.7 * 5, 46 * 5], // 右边中间
+        [0, -8.7 * 5, 0], // 中心
+      ];
+
+      // 在每个指定的位置创建正方体
+      rectPositions.forEach((pos) => {
+        const cube = new THREE.Mesh(rectGeometry, wood2Material);
+        cube.position.set(...pos);
+        scene.add(cube);
+        const edges = new THREE.EdgesGeometry(rectGeometry);
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 }); // 黑色
+        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+        edgeLines.position.set(...pos); // 设置边框的位置与正方体一致
+        scene.add(edgeLines);
+      });
+
+      // 创建OrbitControls来控制旋转
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true; // 添加阻尼效果
+      controls.dampingFactor = 0.1;
+
+      // 渲染循环
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update(); // 更新OrbitControls
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // 调整视窗大小时自适应
+      window.addEventListener("resize", () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      });
+    </script>
+  </body>
+</html>
