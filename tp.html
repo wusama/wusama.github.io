@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D 木质货物托盘</title>
+    <style>
+      :root {
+        --bg-top: #f4ead9;
+        --bg-bottom: #d8c2a2;
+        --panel: rgba(58, 40, 24, 0.82);
+        --text: #fff8ed;
+        --accent: #f7c97b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      #app {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .hud {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        padding: 12px 14px;
+        color: var(--text);
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        line-height: 1.5;
+        max-width: min(92vw, 420px);
+        box-shadow: 0 14px 32px rgba(37, 24, 10, 0.18);
+      }
+
+      .hud strong {
+        color: var(--accent);
+      }
+
+      .hud code {
+        font-family: Consolas, monospace;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="hud" id="hud"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+      const defaults = {
+        l: 1100,
+        w: 1000,
+        h: 14,
+        s: 80,
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const dimensions = {
+        l: getPositiveNumber(params.get("l"), defaults.l),
+        w: getPositiveNumber(params.get("w"), defaults.w),
+        h: getPositiveNumber(params.get("h"), defaults.h),
+        s: getPositiveNumber(params.get("s"), defaults.s),
+      };
+
+      const app = document.getElementById("app");
+      const hud = document.getElementById("hud");
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0ebe3);
+
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        0.5,
+        30000
+      );
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      app.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.minDistance = Math.max(120, dimensions.s * 1.5);
+      controls.maxDistance = Math.max(dimensions.l, dimensions.w) * 3.5;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      sunLight.position.set(
+        dimensions.l * 0.6,
+        dimensions.s * 8,
+        dimensions.w * 0.7
+      );
+      scene.add(sunLight);
+
+      const woodMaterials = createWoodMaterials();
+
+      const pallet = new THREE.Group();
+      scene.add(pallet);
+
+      buildPallet(pallet, dimensions, woodMaterials);
+      frameCamera(camera, controls, dimensions);
+      updateHud(hud, dimensions);
+
+      window.addEventListener("resize", onResize);
+      animate();
+
+      function buildPallet(group, dims, materials) {
+        const { l, w, h, s } = dims;
+        const { boardMaterial, blockMaterial, edgeMaterial } = materials;
+
+        const topBoard = new THREE.Mesh(
+          new THREE.BoxGeometry(l, h, w),
+          boardMaterial
+        );
+        topBoard.position.set(0, h + s + h / 2, 0);
+        group.add(topBoard);
+        group.add(
+          createEdges(topBoard.geometry, topBoard.position, edgeMaterial)
+        );
+
+        const cubeGeometry = new THREE.BoxGeometry(s, s, s);
+        const xPositions = [-l / 2 + s / 2, 0, l / 2 - s / 2];
+        const zPositions = [-w / 2 + s / 2, 0, w / 2 - s / 2];
+
+        for (const x of xPositions) {
+          for (const z of zPositions) {
+            const cube = new THREE.Mesh(cubeGeometry, blockMaterial);
+            cube.position.set(x, h + s / 2, z);
+            group.add(cube);
+            group.add(createEdges(cube.geometry, cube.position, edgeMaterial));
+          }
+        }
+
+        const runnerGeometry = new THREE.BoxGeometry(l, h, s);
+        for (const z of zPositions) {
+          const runner = new THREE.Mesh(runnerGeometry, boardMaterial);
+          runner.position.set(0, h / 2, z);
+          group.add(runner);
+          group.add(
+            createEdges(runner.geometry, runner.position, edgeMaterial)
+          );
+        }
+      }
+
+      function createWoodMaterials() {
+        const textureLoader = new THREE.TextureLoader();
+        const wood1Texture = textureLoader.load("/images/1.jpg");
+        const wood2Texture = textureLoader.load("/images/2.jpg");
+        const wood3Texture = textureLoader.load("/images/3.jpg");
+
+        configureTexture(wood1Texture, 2.6, 2.2);
+        configureTexture(wood2Texture, 1.2, 1.2);
+        configureTexture(wood3Texture, 2.6, 1.1);
+
+        return {
+          boardMaterial: new THREE.MeshBasicMaterial({ map: wood1Texture }),
+          blockMaterial: new THREE.MeshBasicMaterial({ map: wood2Texture }),
+          runnerMaterial: new THREE.MeshBasicMaterial({ map: wood3Texture }),
+          edgeMaterial: new THREE.LineBasicMaterial({ color: 0x1f1a17 }),
+        };
+      }
+
+      function configureTexture(texture, repeatX, repeatY) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(repeatX, repeatY);
+      }
+
+      function createEdges(geometry, position, material) {
+        const line = new THREE.LineSegments(
+          new THREE.EdgesGeometry(geometry),
+          material
+        );
+        line.position.copy(position);
+        return line;
+      }
+
+      function frameCamera(targetCamera, orbitControls, dims) {
+        const maxSpan = Math.max(dims.l, dims.w);
+        const totalHeight = dims.h * 2 + dims.s;
+        targetCamera.position.set(
+          maxSpan * 1.1,
+          Math.max(280, totalHeight * 2.6),
+          maxSpan * 1.1
+        );
+        orbitControls.target.set(0, totalHeight * 0.55, 0);
+        orbitControls.update();
+      }
+
+      function updateHud(target, dims) {
+        target.innerHTML = `
+          <div><strong>3D 木质货物托盘</strong></div>
+          <div>顶部木板: ${dims.l} x ${dims.w} x ${dims.h} mm</div>
+          <div>中层木块: 9 个，每个 ${dims.s} x ${dims.s} x ${dims.s} mm</div>
+          <div>底部纵梁: 3 个，每个 ${dims.l} x ${dims.h} x ${dims.s} mm</div>
+          <div>鼠标左键旋转，滚轮缩放，右键平移</div>
+        `;
+      }
+
+      function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function render() {
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        render();
+      }
+
+      function getPositiveNumber(value, fallback) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+      }
+    </script>
+  </body>
+</html>
